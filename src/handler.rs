@@ -59,3 +59,31 @@ pub async fn create_game_handler(
 
     Ok(Json(game_response))
 }
+
+pub async fn game_list_handler(
+    State(state): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+    let games = sqlx::query_as!(
+        GameModel,
+        r#"
+        SELECT * FROM games ORDER BY name
+        "#,
+    )
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(|err| {
+        let error_response = json!({
+            "status": "error",
+            "message": format!("Database error: {}", err)
+        });
+        (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+    })?;
+
+    let games_response = json!({
+        "status": "ok",
+        "count": games.len(),
+        "notes": games
+    });
+
+    Ok(Json(games_response))
+}
