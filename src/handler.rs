@@ -1,7 +1,13 @@
 use std::sync::Arc;
 
-use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+};
 use serde_json::{Value, json};
+use uuid::Uuid;
 
 use crate::{AppState, model::GameModel, schema::GameSchema};
 
@@ -86,4 +92,43 @@ pub async fn game_list_handler(
     });
 
     Ok(Json(games_response))
+}
+
+pub async fn get_game_handler(
+    Path(game_id): Path<Uuid>,
+    State(state): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+    let query_result = sqlx::query_as!(
+        GameModel,
+        r#"
+        SELECT * FROM games WHERE id = $1
+        "#,
+        &game_id
+    )
+    .fetch_one(&state.db_pool)
+    .await;
+
+    match query_result {
+        Ok(game) => {
+            let game_response = json!({
+                "status": "success",
+                "data": json!({
+                    "game": game
+                })
+            });
+
+            Ok(Json(game_response))
+        }
+        Err(sqlx::Error::RowNotFound) => {
+            let error_response = json!({
+                "status": "fail",
+                "message": format!("Game with ID {} not found", game_id)
+            });
+            Err((StatusCode::NOT_FOUND, Json(error_response)))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"status": "error", "message": format!("{:?}", e)})),
+        )),
+    }
 }
