@@ -1,11 +1,14 @@
 use std::sync::Arc;
 
-use crate::handler::hello_world;
+use crate::{handler::hello_world, route::create_router};
 use axum::{Router, routing::get};
 use dotenv::dotenv;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
 mod handler;
+mod model;
+mod route;
+mod schema;
 
 pub struct AppState {
     pub db_pool: PgPool,
@@ -26,9 +29,7 @@ async fn main() {
         db_pool: pool.clone(),
     });
 
-    let app = Router::new()
-        .route("/api", get(hello_world))
-        .with_state(app_state);
+    let app = create_router(app_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     println!("Server started successfully at 0.0.0.0:3000");

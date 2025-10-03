@@ -1,2 +1,12 @@
 ### testing 'hello world'
 GET http://localhost:3000/api
+
+### testing create game
+POST http://localhost:3000/api/game
+Content-Type: application/json
+
+{
+    "name": "Wingspan",
+    "creator": "Elizabeth Hargrave",
+    "plays": 23
+}
