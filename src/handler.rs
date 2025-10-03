@@ -9,7 +9,11 @@ use axum::{
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::{AppState, model::GameModel, schema::GameSchema};
+use crate::{
+    AppState,
+    model::GameModel,
+    schema::{GameSchema, UpdateGameSchema},
+};
 
 pub async fn create_game_handler(
     State(state): State<Arc<AppState>>,
@@ -157,6 +161,73 @@ pub async fn delete_game_handler(
         "message": "Game deleted successfully",
         "data": json!({
             "deleted_game": query_result
+        })
+    });
+
+    Ok(Json(response))
+}
+
+pub async fn update_game_handler(
+    Path(game_id): Path<Uuid>,
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<UpdateGameSchema>,
+) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+    let query_result = sqlx::query_as!(
+        GameModel,
+        r#"
+        SELECT * FROM games WHERE id = $1
+        "#,
+        &game_id
+    )
+    .fetch_one(&state.db_pool)
+    .await;
+
+    let game = match query_result {
+        Ok(game) => game,
+        Err(sqlx::Error::RowNotFound) => {
+            let error_response = json!({
+                "status": "fail",
+                "message": format!("Game with ID {} not found", game_id)
+            });
+            return Err((StatusCode::NOT_FOUND, Json(error_response)));
+        }
+        Err(err) => {
+            let error_response = json!({
+                "status": "error",
+                "message": format!("{:?}", err)
+            });
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, Json(error_response)));
+        }
+    };
+
+    let new_name = payload.name.as_ref().unwrap_or(&game.name);
+    let new_creator = payload.creator.as_ref().unwrap_or(&game.creator);
+    let new_plays = payload.plays.unwrap_or(game.plays);
+
+    let updated_game = sqlx::query_as!(
+        GameModel,
+        r#"
+        UPDATE games SET name = $1, creator = $2, plays = $3 WHERE id = $4 RETURNING *
+        "#,
+        &new_name,
+        &new_creator,
+        &new_plays,
+        &game_id
+    )
+    .fetch_one(&state.db_pool)
+    .await
+    .map_err(|err| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"status": "error", "message": format!("{:?}", err)})),
+        )
+    })?;
+
+    let response = json!({
+        "status": "success",
+        "message": "Game updated successfully",
+        "data": json!({
+            "player": updated_game
         })
     });
 

@@ -16,3 +16,16 @@ GET http://localhost:3000/api/games
 
 ### testing get game by id
 GET http://localhost:3000/api/games/faf38e0a-3565-48b1-b5c7-7a5beb5e2411
+
+### testing delete game
+DELETE http://localhost:3000/api/games/faf38e0a-3565-48b1-b5c7-7a5beb5e2411
+
+### testing update game
+PATCH http://localhost:3000/api/games/faf38e0a-3565-48b1-b5c7-7a5beb5e2411
+Content-Type: application/json
+
+{
+    "name": "Wingspan",
+    "creator": "Elizabeth Hargrave",
+    "plays": 24
+}
