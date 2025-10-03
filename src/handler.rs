@@ -11,14 +11,6 @@ use uuid::Uuid;
 
 use crate::{AppState, model::GameModel, schema::GameSchema};
 
-pub async fn hello_world() -> impl IntoResponse {
-    let json_response = json!({
-        "status": "ok",
-        "message": "Hello, World!"
-    });
-    Json(json_response)
-}
-
 pub async fn create_game_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<GameSchema>,
@@ -131,4 +123,42 @@ pub async fn get_game_handler(
             Json(json!({"status": "error", "message": format!("{:?}", e)})),
         )),
     }
+}
+
+pub async fn delete_game_handler(
+    Path(game_id): Path<Uuid>,
+    State(state): State<Arc<AppState>>,
+) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+    let query_result = sqlx::query_as!(
+        GameModel,
+        r#"
+        DELETE FROM games WHERE id = $1 RETURNING *
+        "#,
+        &game_id
+    )
+    .fetch_one(&state.db_pool)
+    .await
+    .map_err(|err| match err {
+        sqlx::Error::RowNotFound => {
+            let error_response = json!({
+                "status": "fail",
+                "message": format!("Game with ID {} not found", game_id)
+            });
+            (StatusCode::NOT_FOUND, Json(error_response))
+        }
+        _ => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"status": "error", "message": format!("{:?}", err)})),
+        ),
+    })?;
+
+    let response = json!({
+        "status": "success",
+        "message": "Game deleted successfully",
+        "data": json!({
+            "deleted_game": query_result
+        })
+    });
+
+    Ok(Json(response))
 }

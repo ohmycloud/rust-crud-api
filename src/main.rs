@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use crate::{handler::hello_world, route::create_router};
-use axum::{Router, routing::get};
+use crate::route::create_router;
 use dotenv::dotenv;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 
